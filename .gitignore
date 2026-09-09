@@ -83,5 +83,7 @@ yarn.lock
 Thumbs.db
 
 # AI
+.agents/
+skills-lock.json
 openspec
 research

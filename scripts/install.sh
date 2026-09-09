@@ -4,8 +4,9 @@ set -eu
 # Installs cmdshape from GitHub Releases.
 #
 # Usage:
-#   curl --proto "=https" --tlsv1.2 -sSfL https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh | sh
-#   curl --proto "=https" --tlsv1.2 -sSfL ... | VERSION=0.1.0 sh
+#   Download this script completely, then run: sh install.sh
+#   VERSION=0.1.0 sh install.sh
+#   See README.md for curl and wget bootstrap commands.
 #
 # Env:
 #   VERSION               Release tag in X.Y.Z form (default: latest)
@@ -27,21 +28,129 @@ MAX_RELEASE_BYTES=1048576
 MAX_CHECKSUM_BYTES=1048576
 MAX_ARCHIVE_BYTES=134217728
 MAX_BINARY_BYTES=67108864
-curl_secure() {
-  curl --proto "=https" --tlsv1.2 --retry 5 --retry-delay 2 --retry-all-errors -sSfL "$@"
-  return 0
-}
+# Each client handles one response at a time. In particular, wget's
+# --https-only does not prevent HTTP redirects for non-recursive downloads.
+download_with() (
+  client="$1"
+  canonical="$2"
+  destination="$3"
+  limit="$4"
+  stage="$5"
+  mode="$6"
+  request_url="$canonical"
+  redirects=0
+  retries=0
+  headers="$TMP_DIR/response-headers"
+  diagnostic="$TMP_DIR/response-error"
+
+  while :; do
+    case "$request_url" in
+      https://*) ;;
+      *) echo "$stage: refused non-HTTPS redirect from $canonical" >&2; exit 65 ;;
+    esac
+    : > "$destination"
+    : > "$headers"
+    : > "$diagnostic"
+    status=0
+    # POSIX sh specifies 512-byte blocks. This also bounds wget responses
+    # without Content-Length; the byte check below is authoritative.
+    if (
+      ulimit -f "$(( (limit + 511) / 512 ))" || exit 65
+      if [ "$client" = curl ]; then
+        curl --disable --proto '=https' --proto-redir '=https' --tlsv1.2 \
+          --connect-timeout 15 --max-time 120 --max-filesize "$limit" \
+          -sSf --dump-header "$headers" -o "$destination" "$request_url"
+      else
+        wget --no-config --secure-protocol=TLSv1_2 --max-redirect=0 \
+          --timeout=30 --tries=1 --server-response --no-verbose \
+          -O "$destination" "$request_url" 2> "$headers"
+      fi
+    ) 2> "$diagnostic"; then
+      status=0
+    else
+      status=$?
+    fi
+    size="$(wc -c < "$destination" | tr -d ' ')"
+    if [ "$size" -gt "$limit" ] || [ "$status" -eq 63 ] || [ "$status" -ge 128 ]; then
+      echo "$stage: download exceeds ${limit} bytes: $canonical" >&2
+      exit 65
+    fi
+    [ "$status" -ne 65 ] || exit 65
+    http_status="$(awk '$1 ~ /^HTTP\// {code=$2; sub(/\r$/, "", code)} END {print code}' "$headers")"
+    case "$http_status" in
+      301|302|303|307|308)
+        redirect="$(awk '
+          $1 ~ /^HTTP\// {location=""; count=0}
+          tolower($1) == "location:" {sub(/\r$/, ""); sub(/^[ \t]*[^:]+:[ \t]*/, ""); location=$0; count++}
+          END {if (count == 1) print location}
+        ' "$headers")"
+        redirects=$((redirects + 1))
+        if [ "$redirects" -gt 10 ] || [ -z "$redirect" ]; then
+          echo "$stage: invalid or excessive redirects from $canonical" >&2
+          exit 65
+        fi
+        case "$redirect" in
+          https://*) ;;
+          /*) case "$redirect" in //*) echo "$stage: unsafe redirect from $canonical" >&2; exit 65 ;; esac
+              authority="${request_url#https://}"; authority="${authority%%/*}"
+              redirect="https://$authority$redirect" ;;
+          *) echo "$stage: refused non-HTTPS or ambiguous redirect from $canonical" >&2; exit 65 ;;
+        esac
+        if [ "$mode" = resolve ]; then
+          case "$redirect" in
+            "https://github.com/$REPO/releases/tag/"*)
+              validate_release_version "${redirect#"https://github.com/$REPO/releases/tag/"}" || {
+                echo "$stage: release version must be exact semantic version (X.Y.Z)" >&2; exit 65;
+              }
+              exit 0 ;;
+            *) echo "$stage: unexpected release redirect from $canonical" >&2; exit 65 ;;
+          esac
+        fi
+        request_url="$redirect"
+        continue
+        ;;
+      200)
+        if [ "$status" -eq 0 ] && [ "$mode" = file ]; then return 0; fi
+        ;;
+    esac
+    echo "$stage: $client failed (HTTP ${http_status:-unknown}, exit $status): $canonical" >&2
+    cat "$diagnostic" >&2
+    if [ "$client" = wget ]; then
+      # Suppress signed redirect URLs in wget's progress output.
+      sed '/https\?:\/\//d' "$headers" >&2
+    fi
+    transient=false
+    case "$http_status" in
+      408|429|500|502|503|504) transient=true ;;
+      ''|200)
+        case "$client:$status" in
+          curl:5|curl:6|curl:7|curl:18|curl:28|curl:52|curl:55|curl:56|wget:4) transient=true ;;
+        esac ;;
+    esac
+    if [ "$transient" = true ] && [ "$retries" -lt 2 ]; then
+      retries=$((retries + 1))
+      sleep "$retries"
+      request_url="$canonical"
+      redirects=0
+      continue
+    fi
+    exit 1
+  done
+)
 
 download_bounded() {
-  url="$1"
-  destination="$2"
-  limit="$3"
-  curl_secure --max-filesize "$limit" "$url" -o "$destination"
-  size="$(wc -c < "$destination" | tr -d ' ')"
-  if [ "$size" -gt "$limit" ]; then
-    echo "download exceeds ${limit} bytes: $url" >&2
-    exit 1
-  fi
+  for download_client in curl wget; do
+    command -v "$download_client" >/dev/null 2>&1 || continue
+    if download_with "$download_client" "$1" "$2" "$3" "$4" "${5:-file}"; then
+      return 0
+    else
+      download_status=$?
+    fi
+    [ "$download_status" -ne 65 ] || exit 1
+    echo "$4: trying another available downloader" >&2
+  done
+  echo "$4: download failed; curl or wget must be installed and able to reach $1" >&2
+  exit 1
 }
 
 sha256_file() {
@@ -178,8 +287,11 @@ need_cmd() {
 }
 
 need_cmd uname
-need_cmd curl
 need_cmd unzip
+if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+  echo "missing required command: curl or wget" >&2
+  exit 1
+fi
 
 parse_release_version() {
 	parsed_version="$1"
@@ -391,13 +503,8 @@ TMP_DIR="$(mktemp -d)"
 trap 'if [ -n "$STAGED_DST" ]; then rm -f "$STAGED_DST"; fi; if [ -n "$TMP_DIR" ]; then rm -rf "$TMP_DIR"; fi' EXIT INT TERM
 
 if [ "$VERSION" = "latest" ]; then
-  API_URL="https://api.github.com/repos/$REPO/releases/latest"
-  download_bounded "$API_URL" "$TMP_DIR/latest.json" "$MAX_RELEASE_BYTES"
-  VERSION="$(grep '"tag_name":' "$TMP_DIR/latest.json" | sed -E 's/.*"([^"]+)".*/\1/' | head -n1)"
-  if [ -z "$VERSION" ]; then
-    echo "failed to resolve latest version from $API_URL" >&2
-    exit 1
-  fi
+  LATEST_URL="https://github.com/$REPO/releases/latest"
+  VERSION="$(download_bounded "$LATEST_URL" "$TMP_DIR/latest" "$MAX_RELEASE_BYTES" 'version lookup' resolve)"
 fi
 
 RESOLVED_VERSION="$(validate_release_version "$VERSION")" || {
@@ -412,8 +519,8 @@ CHECKSUMS_ASSET="cmdshape_checksums.txt"
 CHECKSUMS_URL="https://github.com/$REPO/releases/download/$VERSION/$CHECKSUMS_ASSET"
 
 echo "Downloading $URL"
-download_bounded "$URL" "$TMP_DIR/$ASSET" "$MAX_ARCHIVE_BYTES"
-download_bounded "$CHECKSUMS_URL" "$TMP_DIR/$CHECKSUMS_ASSET" "$MAX_CHECKSUM_BYTES"
+download_bounded "$URL" "$TMP_DIR/$ASSET" "$MAX_ARCHIVE_BYTES" archive
+download_bounded "$CHECKSUMS_URL" "$TMP_DIR/$CHECKSUMS_ASSET" "$MAX_CHECKSUM_BYTES" checksums
 verify_download_checksum "$TMP_DIR/$CHECKSUMS_ASSET" "$ASSET" "$TMP_DIR/$ASSET"
 
 if [ "$OS" = "windows" ]; then
