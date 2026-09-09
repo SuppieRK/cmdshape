@@ -90,8 +90,8 @@ done
 [ "$out" != - ] || out=/dev/stdout
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
-  *cmdshape_checksums.txt) cp %s "$out" ;;
-  *) cp %s "$out" ;;
+  *cmdshape_checksums.txt) cat %s > "$out" ;;
+  *) cat %s > "$out" ;;
 esac
 `, shellQuoteTestPath(checksumPath), shellQuoteTestPath(assetPath)))
 		home := filepath.Join(workspace, "home")
@@ -142,8 +142,8 @@ done
 [ "$out" != - ] || out=/dev/stdout
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
-  *cmdshape_checksums.txt) cp %s "$out" ;;
-  *) cp %s "$out" ;;
+  *cmdshape_checksums.txt) cat %s > "$out" ;;
+  *) cat %s > "$out" ;;
 esac
 `, shellQuoteTestPath(checksumPath), shellQuoteTestPath(assetPath)))
 		result := runInstallScript(scriptPath, workspace, map[string]string{
@@ -233,7 +233,7 @@ while [ "$#" -gt 0 ]; do
 done
 [ "$out" != - ] || out=/dev/stdout
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
-case "$url" in *cmdshape_checksums.txt) cp %s "$out" ;; *) cp %s "$out" ;; esac
+case "$url" in *cmdshape_checksums.txt) cat %s > "$out" ;; *) cat %s > "$out" ;; esac
 `, shellQuoteTestPath(oversized), shellQuoteTestPath(assetPath)))
 
 		result := runInstallScript(scriptPath, workspace, map[string]string{

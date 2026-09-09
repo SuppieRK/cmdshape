@@ -335,6 +335,7 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.source_sha }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Download draft assets
         env:

@@ -207,8 +207,8 @@ done
 %s
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
-  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_checksums.txt) cp %s "$out" ;;
-  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_1.2.3_linux_amd64.zip) cp %s "$out" ;;
+  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_checksums.txt) cat %s > "$out" ;;
+  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_1.2.3_linux_amd64.zip) cat %s > "$out" ;;
   *) echo "unexpected URL: $url" >&2; exit 99 ;;
 esac
 `, response, shellQuoteTestPath(f.checksums), shellQuoteTestPath(f.archive)))
@@ -247,8 +247,8 @@ done
 %s
 printf '  HTTP/1.1 200 OK\r\n\r\n' >&2
 case "$url" in
-  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_checksums.txt) cp %s "$out" ;;
-  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_1.2.3_linux_amd64.zip) cp %s "$out" ;;
+  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_checksums.txt) cat %s > "$out" ;;
+  https://github.com/SuppieRK/cmdshape/releases/download/1.2.3/cmdshape_1.2.3_linux_amd64.zip) cat %s > "$out" ;;
   *) echo "unexpected URL: $url" >&2; exit 99 ;;
 esac
 `, response, shellQuoteTestPath(f.checksums), shellQuoteTestPath(f.archive)))

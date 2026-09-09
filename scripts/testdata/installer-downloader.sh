@@ -35,4 +35,4 @@ if [ "$client" = curl ]; then
 else
   printf '  HTTP/1.1 200 OK\r\n\r\n' >&2
 fi
-cp "$CMDSHAPE_SMOKE_ASSETS/$asset" "$output"
+cat "$CMDSHAPE_SMOKE_ASSETS/$asset" > "$output"
