@@ -164,7 +164,7 @@ exit 8
 		Expect(os.WriteFile(fixture.checksums, []byte(strings.Repeat("0", 2*1024*1024+1)), 0o644)).To(Succeed())
 		result := fixture.run("1.2.3")
 		Expect(result.exitCode).NotTo(BeZero())
-		Expect(result.stderr).To(ContainSubstring("checksums:"))
+		Expect(result.stderr).To(ContainSubstring("checksums: download exceeds 1048576 bytes"))
 		Expect(filepath.Join(fixture.install, "cmdshape")).NotTo(BeAnExistingFile())
 	})
 })
@@ -203,6 +203,7 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
+[ "$out" != - ] || out=/dev/stdout
 %s
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
@@ -221,7 +222,7 @@ func (f installerDownloadFixture) run(version string) shellRunResult {
 }
 
 func (f *installerDownloadFixture) isolateTools() {
-	for _, name := range []string{"awk", "cat", "chmod", "cp", "grep", "mkdir", "mktemp", "mv", "rm", "sed", "sh", "sleep", "tr", "unzip", "wc", "sha256sum", "shasum"} {
+	for _, name := range []string{"awk", "cat", "chmod", "cp", "grep", "head", "mkdir", "mktemp", "mv", "rm", "sed", "sh", "sleep", "tr", "unzip", "wc", "sha256sum", "shasum"} {
 		path, err := exec.LookPath(name)
 		if err != nil {
 			continue
@@ -242,6 +243,7 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
+[ "$out" != - ] || out=/dev/stdout
 %s
 printf '  HTTP/1.1 200 OK\r\n\r\n' >&2
 case "$url" in

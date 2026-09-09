@@ -42,6 +42,7 @@ download_with() (
   retries=0
   headers="$TMP_DIR/response-headers"
   diagnostic="$TMP_DIR/response-error"
+  client_status="$TMP_DIR/response-status"
 
   while :; do
     case "$request_url" in
@@ -51,27 +52,29 @@ download_with() (
     : > "$destination"
     : > "$headers"
     : > "$diagnostic"
-    status=0
-    # POSIX sh specifies 512-byte blocks. This also bounds wget responses
-    # without Content-Length; the byte check below is authoritative.
+    # Bound the response stream, including responses without Content-Length.
+    # Git Bash cannot set ulimit -f, so this must not depend on OS file limits.
+    # Keep the client's exit status separately: POSIX sh has no pipefail.
     if (
-      ulimit -f "$(( (limit + 511) / 512 ))" || exit 65
+      status=0
       if [ "$client" = curl ]; then
         curl --disable --proto '=https' --proto-redir '=https' --tlsv1.2 \
           --connect-timeout 15 --max-time 120 --max-filesize "$limit" \
-          -sSf --dump-header "$headers" -o "$destination" "$request_url"
+          -sSf --dump-header "$headers" -o - "$request_url" || status=$?
       else
         wget --no-config --secure-protocol=TLSv1_2 --max-redirect=0 \
           --timeout=30 --tries=1 --server-response --no-verbose \
-          -O "$destination" "$request_url" 2> "$headers"
+          -O - "$request_url" 2> "$headers" || status=$?
       fi
-    ) 2> "$diagnostic"; then
-      status=0
+      printf '%s\n' "$status" > "$client_status"
+    ) 2> "$diagnostic" | head -c "$((limit + 1))" > "$destination"; then
+      status="$(cat "$client_status")"
     else
-      status=$?
+      echo "$stage: could not write bounded download: $canonical" >&2
+      exit 65
     fi
     size="$(wc -c < "$destination" | tr -d ' ')"
-    if [ "$size" -gt "$limit" ] || [ "$status" -eq 63 ] || [ "$status" -ge 128 ]; then
+    if [ "$size" -gt "$limit" ] || [ "$status" -eq 63 ]; then
       echo "$stage: download exceeds ${limit} bytes: $canonical" >&2
       exit 65
     fi
@@ -288,6 +291,7 @@ need_cmd() {
 
 need_cmd uname
 need_cmd unzip
+need_cmd head
 if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
   echo "missing required command: curl or wget" >&2
   exit 1

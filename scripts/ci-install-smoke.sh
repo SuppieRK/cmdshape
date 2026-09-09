@@ -23,7 +23,7 @@ case "$goarch" in x86_64|amd64) goarch=amd64 ;; aarch64|arm64) goarch=arm64 ;; *
 prepare_tools() {
   local tools_dir="$1" client_mode="$2" tool tool_path
   mkdir -p "$tools_dir"
-  for tool in awk bash cat chmod cp cygpath dirname grep mkdir mktemp mv rm sed sh sleep tr uname unzip wc sha256sum shasum curl wget; do
+  for tool in awk bash cat chmod cp cygpath dirname grep head mkdir mktemp mv rm sed sh sleep tr uname unzip wc sha256sum shasum curl wget; do
     [[ "$client_mode:$tool" == curl:wget || "$client_mode:$tool" == wget:curl ]] && continue
     if tool_path="$(command -v "$tool")"; then
       printf '#!/bin/sh\nexec %q "$@"\n' "$tool_path" > "$tools_dir/$tool"

@@ -87,6 +87,7 @@ while [ "$#" -gt 0 ]; do
     *) url="$1"; shift ;;
   esac
 done
+[ "$out" != - ] || out=/dev/stdout
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
   *cmdshape_checksums.txt) cp %s "$out" ;;
@@ -138,6 +139,7 @@ while [ "$#" -gt 0 ]; do
     *) url="$1"; shift ;;
   esac
 done
+[ "$out" != - ] || out=/dev/stdout
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
   *cmdshape_checksums.txt) cp %s "$out" ;;
@@ -229,6 +231,7 @@ url=""
 while [ "$#" -gt 0 ]; do
   case "$1" in -o) out="$2"; shift 2 ;; --dump-header) headers="$2"; shift 2 ;; *) url="$1"; shift ;; esac
 done
+[ "$out" != - ] || out=/dev/stdout
 printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in *cmdshape_checksums.txt) cp %s "$out" ;; *) cp %s "$out" ;; esac
 `, shellQuoteTestPath(oversized), shellQuoteTestPath(assetPath)))

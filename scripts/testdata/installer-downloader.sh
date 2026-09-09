@@ -13,6 +13,7 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
+[ "$output" != - ] || output=/dev/stdout
 
 if [ "${CMDSHAPE_SMOKE_MODE:-}" = reject-curl ]; then
   printf 'HTTP/2 403\r\n\r\n' > "$headers"
