@@ -78,16 +78,20 @@ esac
 `)
 		writeExecutable(filepath.Join(binDir, "curl"), fmt.Sprintf(`#!/bin/sh
 out=""
+headers=""
 url=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -o) out="$2"; shift 2 ;;
+    --dump-header) headers="$2"; shift 2 ;;
     *) url="$1"; shift ;;
   esac
 done
+[ "$out" != - ] || out=/dev/stdout
+printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
-  *cmdshape_checksums.txt) cp %s "$out" ;;
-  *) cp %s "$out" ;;
+  *cmdshape_checksums.txt) cat %s > "$out" ;;
+  *) cat %s > "$out" ;;
 esac
 `, shellQuoteTestPath(checksumPath), shellQuoteTestPath(assetPath)))
 		home := filepath.Join(workspace, "home")
@@ -126,16 +130,20 @@ esac
 `)
 		writeExecutable(filepath.Join(binDir, "curl"), fmt.Sprintf(`#!/bin/sh
 out=""
+headers=""
 url=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -o) out="$2"; shift 2 ;;
+    --dump-header) headers="$2"; shift 2 ;;
     *) url="$1"; shift ;;
   esac
 done
+[ "$out" != - ] || out=/dev/stdout
+printf 'HTTP/2 200\r\n\r\n' > "$headers"
 case "$url" in
-  *cmdshape_checksums.txt) cp %s "$out" ;;
-  *) cp %s "$out" ;;
+  *cmdshape_checksums.txt) cat %s > "$out" ;;
+  *) cat %s > "$out" ;;
 esac
 `, shellQuoteTestPath(checksumPath), shellQuoteTestPath(assetPath)))
 		result := runInstallScript(scriptPath, workspace, map[string]string{
@@ -218,11 +226,14 @@ esac
 		writeExecutable(filepath.Join(binDir, "uname"), "#!/bin/sh\ncase \"$1\" in -m) printf 'x86_64\\n' ;; *) printf 'Linux\\n' ;; esac\n")
 		writeExecutable(filepath.Join(binDir, "curl"), fmt.Sprintf(`#!/bin/sh
 out=""
+headers=""
 url=""
 while [ "$#" -gt 0 ]; do
-  case "$1" in -o) out="$2"; shift 2 ;; *) url="$1"; shift ;; esac
+  case "$1" in -o) out="$2"; shift 2 ;; --dump-header) headers="$2"; shift 2 ;; *) url="$1"; shift ;; esac
 done
-case "$url" in *cmdshape_checksums.txt) cp %s "$out" ;; *) cp %s "$out" ;; esac
+[ "$out" != - ] || out=/dev/stdout
+printf 'HTTP/2 200\r\n\r\n' > "$headers"
+case "$url" in *cmdshape_checksums.txt) cat %s > "$out" ;; *) cat %s > "$out" ;; esac
 `, shellQuoteTestPath(oversized), shellQuoteTestPath(assetPath)))
 
 		result := runInstallScript(scriptPath, workspace, map[string]string{

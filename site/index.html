@@ -92,7 +92,13 @@
         <div class="install-wrap anchor-target" id="get-started">
           <article class="install-card anchor-target" id="install" data-copy-card>
             <div class="install-label">Install</div>
-            <pre id="install-command"><code>curl -fsSL https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh | sh</code></pre>
+            <pre id="install-command"><code>(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl --disable --proto '=https' --proto-redir '=https' --tlsv1.2 --max-redirs 10 -sSfL https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh -o "$installer" || { echo 'installer bootstrap: curl download failed' &gt;&amp;2; exit 1; }
+  sh "$installer"
+)</code></pre>
             <button class="copy-button" type="button" data-copy-target="install-command" aria-label="Copy install command">
               <svg class="icon-copy" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                 <path fill="currentColor" d="M3.75 2A1.75 1.75 0 0 0 2 3.75v7.5C2 12.216 2.784 13 3.75 13H5v-1.5H3.75a.25.25 0 0 1-.25-.25v-7.5a.25.25 0 0 1 .25-.25h5.5a.25.25 0 0 1 .25.25V5H11V3.75A1.75 1.75 0 0 0 9.25 2z"></path>
@@ -104,6 +110,17 @@
             </button>
             <output class="copy-status" data-copy-status aria-live="polite" aria-atomic="true"></output>
           </article>
+          <details>
+            <summary>Install with wget instead</summary>
+            <pre id="install-command-wget"><code>(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  wget --no-config --secure-protocol=TLSv1_2 --max-redirect=0 https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh -O "$installer" || { echo 'installer bootstrap: wget download failed' &gt;&amp;2; exit 1; }
+  sh "$installer"
+)</code></pre>
+          </details>
+          <p class="install-followup">macOS browser downloads may require per-app approval because releases are not Apple-notarized. <a href="https://github.com/SuppieRK/cmdshape#macos-browser-downloads">Checksum verification and macOS instructions</a>.</p>
           <p class="install-followup">Then run <code>cmdshape init</code> to connect detected coding agents.</p>
         </div>
       </section>

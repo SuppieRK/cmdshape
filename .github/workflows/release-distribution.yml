@@ -319,68 +319,48 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            target: linux_amd64
+          - os: windows-latest
+            target: windows_amd64
+          - os: macos-15-intel
+            target: darwin_amd64
+          - os: macos-latest
+            target: darwin_arm64
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout immutable release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Download draft assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.preflight.outputs.tag }}
           REPO: ${{ github.repository }}
+          TARGET: ${{ matrix.target }}
         shell: bash
         run: |
           set -euo pipefail
-          case "${{ runner.os }}" in
-            Windows)
-              cmdshape_asset="cmdshape_${TAG}_windows_amd64.zip"
-              ;;
-            *)
-              cmdshape_asset="cmdshape_${TAG}_linux_amd64.zip"
-              ;;
-          esac
           gh release download "$TAG" --repo "$REPO" \
-            --pattern "$cmdshape_asset" \
-            --pattern cmdshape_checksums.txt
+            --pattern "cmdshape_${TAG}_${TARGET}.zip" \
+            --pattern cmdshape_checksums.txt \
+            --dir "$RUNNER_TEMP/draft-assets"
 
-      - name: Smoke install draft asset on Unix
-        if: runner.os != 'Windows'
+      - name: Smoke the installer and exact draft executable
         env:
           TAG: ${{ needs.preflight.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p test-bin
-          asset="cmdshape_${TAG}_linux_amd64.zip"
-          grep " ./${asset}$" cmdshape_checksums.txt | sha256sum --check -
-          test "$(unzip -Z1 "$asset")" = "cmdshape"
-          unzip -q "$asset" -d test-bin
-          chmod 0755 test-bin/cmdshape
-          test "$(test-bin/cmdshape --version)" = "$TAG"
-
-      - name: Smoke install draft asset on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          TAG: ${{ needs.preflight.outputs.tag }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $asset = "cmdshape_${env:TAG}_windows_amd64.zip"
-          $checksumLine = Get-Content cmdshape_checksums.txt | Where-Object { $_ -match [regex]::Escape("./$asset") }
-          if (-not $checksumLine) { throw "missing checksum for $asset" }
-          $expected = ($checksumLine -split '\s+')[0].ToLowerInvariant()
-          $actual = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLowerInvariant()
-          if ($actual -ne $expected) { throw "checksum mismatch for $asset" }
-          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $asset))
-          try {
-            if ($archive.Entries.Count -ne 1 -or $archive.Entries[0].FullName -ne "cmdshape.exe") {
-              throw "unexpected archive shape for $asset"
-            }
-          } finally {
-            $archive.Dispose()
-          }
-          Expand-Archive -Path $asset -DestinationPath test-bin
-          $version = & (Join-Path test-bin "cmdshape.exe") --version
-          if ($version -ne $env:TAG) { throw "unexpected binary version for cmdshape: $version" }
+          # Only the transport is substituted: the checked-out installer still
+          # checks the manifest, archive, version, and atomic install. Draft
+          # credentials are scoped to the download step, never the installer.
+          bash ./scripts/ci-install-smoke.sh --draft "$RUNNER_TEMP/draft-assets" "$TAG"
 
   publish:
     needs: [preflight, smoke-draft]
