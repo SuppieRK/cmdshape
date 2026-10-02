@@ -140,7 +140,7 @@ var _ = Describe("validation workflow dependencies", func() {
 			Expect(workflow).NotTo(ContainSubstring("go install "))
 			Expect(workflow).NotTo(ContainSubstring("raw.githubusercontent.com/golangci"))
 			Expect(workflow).To(ContainSubstring(
-				"uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8",
+				"uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8",
 			))
 			Expect(workflow).NotTo(ContainSubstring("uses: SonarSource/sonarqube-scan-action@v8"))
 		},
