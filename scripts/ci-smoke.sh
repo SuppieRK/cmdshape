@@ -21,30 +21,41 @@ fail_cmd=(bash -lc "exit 7")
 if [[ "$runner_os" == "Windows" ]]; then
   cmdshape_bin="cmdshape.exe"
 fi
+if [[ $# -gt 2 ]]; then
+  echo "usage: ci-smoke.sh [executable [expected-version]]" >&2
+  exit 1
+fi
+cmdshape_bin="${1:-$cmdshape_bin}"
+expected_version="${2:-}"
 
-if ! command -v "$cmdshape_bin" >/dev/null 2>&1; then
+if ! resolved_binary="$(command -v "$cmdshape_bin")"; then
   echo "installed $cmdshape_bin not found on PATH" >&2
   exit 1
 fi
+cmdshape_bin="$resolved_binary"
 
 workspace="$(mktemp -d)"
 trap 'rm -rf "$workspace"' EXIT
 
 pushd "$workspace" >/dev/null
 
-version_out="$($cmdshape_bin --version)"
+version_out="$("$cmdshape_bin" --version)"
 if [[ -z "${version_out}" ]]; then
   echo "cmdshape --version returned empty output" >&2
   exit 1
 fi
+if [[ -n "$expected_version" && "$version_out" != "$expected_version" ]]; then
+  echo "expected version $expected_version, got $version_out from $cmdshape_bin" >&2
+  exit 1
+fi
 
-filtered_out="$($cmdshape_bin "${pass_cmd[@]}")"
+filtered_out="$("$cmdshape_bin" "${pass_cmd[@]}")"
 if [[ "$(normalize_output "$filtered_out")" != "smoke-filtered" ]]; then
   echo "unexpected filtered smoke output: $filtered_out" >&2
   exit 1
 fi
 
-raw_out="$($cmdshape_bin --raw "${raw_cmd[@]}")"
+raw_out="$("$cmdshape_bin" --raw "${raw_cmd[@]}")"
 if [[ "$(normalize_output "$raw_out")" != "smoke-raw" ]]; then
   echo "unexpected raw smoke output: $raw_out" >&2
   exit 1
@@ -53,14 +64,14 @@ fi
 blocked_home="$workspace/blocked-home"
 mkdir -p "$blocked_home"
 printf 'block' > "$blocked_home/.config"
-blocked_out="$(HOME="$blocked_home" USERPROFILE="$blocked_home" $cmdshape_bin "${blocked_cmd[@]}")"
+blocked_out="$(HOME="$blocked_home" USERPROFILE="$blocked_home" "$cmdshape_bin" "${blocked_cmd[@]}")"
 if [[ "$(normalize_output "$blocked_out")" != "smoke-audit" ]]; then
   echo "unexpected blocked-audit smoke output: $blocked_out" >&2
   exit 1
 fi
 
 set +e
-$cmdshape_bin "${fail_cmd[@]}"
+"$cmdshape_bin" "${fail_cmd[@]}"
 status=$?
 set -e
 if [[ $status -ne 7 ]]; then

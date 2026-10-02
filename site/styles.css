@@ -397,6 +397,11 @@ pre {
   gap: var(--space-sm);
 }
 
+.install-wrap pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .install-followup {
   color: var(--muted);
 }
@@ -433,7 +438,6 @@ pre {
   padding: var(--space-md) var(--card-space);
   color: var(--terminal-text);
   overflow-x: auto;
-  white-space: nowrap;
 }
 
 .copy-button {

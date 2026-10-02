@@ -122,4 +122,12 @@ for path in \
 	run_case "$path" "pr" "full_ci" "true" "true" "true" "$path" >/dev/null
 done
 
+for path in README.md site/index.html; do
+  installer_output="$(run_case "$path installer" "pr" "none" "false" "false" "false" "$path")"
+  installer_flag="$(printf '%s\n' "$installer_output" | sed -n 's/^run_install_smoke=//p')"
+  assert_equals "$installer_flag" "true" "$path installer smoke"
+done
+assert_equals "$(printf '%s\n' "$runtime_output" | sed -n 's/^run_install_smoke=//p')" "true" "runtime installer smoke"
+assert_equals "$(printf '%s\n' "$none_output" | sed -n 's/^run_install_smoke=//p')" "false" "unrelated asset installer smoke"
+
 echo "[planner-test] benchmark-discover routing checks passed"
