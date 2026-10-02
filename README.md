@@ -44,10 +44,59 @@ matters.
 Install the latest release:
 
 ```bash
-curl --proto "=https" --tlsv1.2 -sSfL https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh | sh
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl --disable --proto '=https' --proto-redir '=https' --tlsv1.2 --max-redirs 10 -sSfL https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh -o "$installer" || { echo 'installer bootstrap: curl download failed' >&2; exit 1; }
+  sh "$installer"
+)
 ```
 
-Then initialize the integrations you want:
+Or use wget:
+
+```bash
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  wget --no-config --secure-protocol=TLSv1_2 --max-redirect=0 https://raw.githubusercontent.com/SuppieRK/cmdshape/main/scripts/install.sh -O "$installer" || { echo 'installer bootstrap: wget download failed' >&2; exit 1; }
+  sh "$installer"
+)
+```
+
+Both commands download the complete installer before executing it. The installer
+uses curl, with wget as a fallback when available, and verifies the release
+archive's SHA-256 checksum before replacing the executable. Set `VERSION` to an
+exact `X.Y.Z` release and `CMDSHAPE_INSTALL_DIR` to an absolute directory to
+override the defaults. For example, replace `sh "$installer"` above with
+`VERSION=0.9.4 CMDSHAPE_INSTALL_DIR="$HOME/.local/bin" sh "$installer"`.
+
+If installation fails, keep the complete error output: `installer bootstrap`
+identifies the script download; `version lookup`, `archive`, and `checksums`
+identify requests made by the installer. Use the canonical links on the
+[release page](https://github.com/SuppieRK/cmdshape/releases), since redirected
+asset URLs can expire.
+
+### macOS browser downloads
+
+The macOS binaries are not Developer ID-signed or notarized by Apple. Browser
+downloads may therefore be blocked by Gatekeeper. A checksum verifies that the
+archive matches the published release; it is not Apple notarization.
+
+For a manual download, obtain the matching `darwin_arm64` (Apple Silicon) or
+`darwin_amd64` (Intel) ZIP and `cmdshape_checksums.txt` from the same release.
+Compare `shasum -a 256 <archive.zip>` with that archive's entry in the manifest
+before extracting and running it. If you trust the download and macOS blocks
+it as unverified, follow Apple's per-app **System Settings → Privacy & Security
+→ Open Anyway** instructions, then retry `cmdshape --version` in Terminal.
+See [Apple's instructions](https://support.apple.com/en-gb/102445). Managed Macs
+may require administrator approval. The installer does not remove quarantine
+attributes or disable Gatekeeper.
+
+### Initialize integrations
+
+After installing, initialize the integrations you want:
 
 ```bash
 cmdshape init

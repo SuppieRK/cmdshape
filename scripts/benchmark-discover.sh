@@ -111,6 +111,7 @@ selected_tools=()
 run_all=0
 changed=()
 run_validate=false
+run_install_smoke=false
 run_benchmarks=false
 run_fixture_verify=false
 change_class="none"
@@ -224,7 +225,10 @@ for path in "${changed[@]-}"; do
     cmd/*|internal/*|go.mod|go.sum)
       mark_full_ci
       ;;
-    README.md|docs/*|site/*|assets/*|LICENSE|LICENSE.*|CODE_OF_CONDUCT.md|CONTRIBUTING.md|SECURITY.md)
+    README.md|site/index.html)
+      run_install_smoke=true
+      ;;
+    docs/*|site/*|assets/*|LICENSE|LICENSE.*|CODE_OF_CONDUCT.md|CONTRIBUTING.md|SECURITY.md)
       ;;
     *)
 	  mark_full_ci
@@ -249,6 +253,7 @@ else
 fi
 
 if [[ "$run_validate" == "true" ]]; then
+  run_install_smoke=true
   change_class="full_ci"
 elif [[ "$has_tools" == "true" ]]; then
   change_class="benchmark_only"
@@ -263,6 +268,7 @@ fi
   echo "benchmark_matrix=${benchmark_matrix}"
   echo "has_tools=${has_tools}"
   echo "run_validate=${run_validate}"
+  echo "run_install_smoke=${run_install_smoke}"
   echo "run_benchmarks=${run_benchmarks}"
 	 echo "run_fixture_verify=${run_fixture_verify}"
   echo "change_class=${change_class}"
@@ -275,6 +281,7 @@ if [[ -n "$summary_file" ]]; then
     echo "- Changed files analyzed: ${changed_count}"
     echo "- Change class: \`${change_class}\`"
     echo "- Run validate: \`${run_validate}\`"
+    echo "- Run installer smoke: \`${run_install_smoke}\`"
     echo "- Run benchmarks: \`${run_benchmarks}\`"
 	 echo "- Run fixture verification: \`${run_fixture_verify}\`"
     echo "- Selected tools: \`$(jq -c 'map(.tool)' <<< "${benchmark_matrix}")\`"

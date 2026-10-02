@@ -15,6 +15,7 @@ jobs:
       benchmark_matrix: ${{ steps.plan.outputs.benchmark_matrix }}
       has_tools: ${{ steps.plan.outputs.has_tools }}
       run_validate: ${{ steps.plan.outputs.run_validate }}
+      run_install_smoke: ${{ steps.plan.outputs.run_install_smoke }}
       run_benchmarks: ${{ steps.plan.outputs.run_benchmarks }}
       run_fixture_verify: ${{ steps.plan.outputs.run_fixture_verify }}
       change_class: ${{ steps.plan.outputs.change_class }}
@@ -87,7 +88,7 @@ jobs:
   smoke-installed-binary:
     name: Smoke Installed Binary / ${{ matrix.os }}
     needs: [plan, validate]
-    if: needs.plan.outputs.run_validate == 'true' && needs.validate.result == 'success'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.run_install_smoke == 'true' && (needs.validate.result == 'success' || needs.validate.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +105,7 @@ jobs:
           cache: true
 
       - name: Build and install cmdshape into runner PATH
+        if: needs.validate.result == 'success'
         shell: bash
         run: |
           set -euo pipefail
@@ -117,10 +119,33 @@ jobs:
           echo "$install_dir" >> "$GITHUB_PATH"
 
       - name: Run installed binary smoke script
+        if: needs.validate.result == 'success'
         shell: bash
         run: |
           set -euo pipefail
           bash ./scripts/ci-smoke.sh
+
+      - name: Check installer and bootstrap regressions for documentation changes
+        if: needs.validate.result == 'skipped'
+        shell: bash
+        run: go test -count=1 ./internal/lifecycle -ginkgo.focus='install script|installer' -ginkgo.no-color -ginkgo.succinct
+
+      - name: Ensure GNU wget is available for installer smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v wget >/dev/null; then
+            case "$RUNNER_OS" in
+              Linux) sudo apt-get update && sudo apt-get install -y wget ;;
+              macOS) brew install wget ;;
+              Windows) choco install wget --yes --no-progress ;;
+            esac
+          fi
+          wget --version
+
+      - name: Smoke the checked-out installer with public release assets
+        shell: bash
+        run: bash ./scripts/ci-install-smoke.sh --public
 
   benchmark-tool:
     name: Benchmark (PR informational) / ${{ matrix.tool }}
