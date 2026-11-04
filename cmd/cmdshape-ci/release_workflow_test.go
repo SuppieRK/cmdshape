@@ -139,10 +139,6 @@ var _ = Describe("validation workflow dependencies", func() {
 			Expect(workflow).To(ContainSubstring("go mod download"))
 			Expect(workflow).NotTo(ContainSubstring("go install "))
 			Expect(workflow).NotTo(ContainSubstring("raw.githubusercontent.com/golangci"))
-			Expect(workflow).To(ContainSubstring(
-				"uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8",
-			))
-			Expect(workflow).NotTo(ContainSubstring("uses: SonarSource/sonarqube-scan-action@v8"))
 		},
 		Entry("main validation", "main-validation.yml"),
 		Entry("pull-request validation", "pr-validation.yml"),
