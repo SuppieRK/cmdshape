@@ -2,7 +2,7 @@ module github.com/SuppieRK/cmdshape
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
 	github.com/fatih/color v1.19.0
