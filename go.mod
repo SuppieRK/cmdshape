@@ -6,7 +6,7 @@ toolchain go1.26.10
 
 require (
 	github.com/fatih/color v1.19.0
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	golang.org/x/tools v0.52.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -227,7 +227,7 @@ require (
 
 require (
 	go.etcd.io/bbolt v1.5.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 )
 
 tool (
